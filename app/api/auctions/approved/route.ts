@@ -1,18 +1,33 @@
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { AuctionStatus } from "@prisma/client";
+import { AuctionStatus, UserRole } from "@prisma/client";
 
 export async function GET() {
   try {
     const session = await getAuthSession();
     const userId = session?.user?.id;
 
-    // Fetch all approved auctions
+    // If no user is logged in, return empty response
+    if (!userId) {
+      return NextResponse.json([]);
+    }
+
+    // Get user role to determine if they're a seller
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    const isSeller = user?.role === UserRole.SELLER;
+
+    // Fetch auctions based on user role
     const auctions = await prisma.auction.findMany({
       where: {
         status: AuctionStatus.ACTIVE,
         isApproved: true,
+        // If user is a seller, only show their own auctions
+        ...(isSeller && { sellerId: userId }),
       },
       include: {
         seller: {
@@ -29,7 +44,7 @@ export async function GET() {
       },
     });
 
-    // If user is logged in, also fetch their favorites to mark favorite auctions
+    // If user is logged in, fetch their favorites to mark favorite auctions
     let userFavorites: string[] = [];
     if (userId) {
       const favorites = await prisma.userFavorite.findMany({
