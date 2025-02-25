@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { AuctionStatus, UserRole } from "@prisma/client";
+import { AuctionStatus, Role } from "@prisma/client";
 
 export async function GET() {
   try {
@@ -19,7 +19,7 @@ export async function GET() {
       select: { role: true },
     });
 
-    const isSeller = user?.role === UserRole.SELLER;
+    const isSeller = user?.role === Role.SELLER;
 
     // Fetch auctions based on user role
     const auctions = await prisma.auction.findMany({

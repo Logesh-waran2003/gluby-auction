@@ -1,6 +1,19 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { MdSend } from "react-icons/md";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
+import axios from "axios";
+
+interface Message {
+  id: string;
+  text: string;
+  type: "sent" | "received";
+  timestamp: string;
+  senderId: string;
+  recipientId: string;
+  auctionId: string;
+  createdAt: Date;
+}
 
 interface ChatProps {
   seller: {
@@ -8,36 +21,92 @@ interface ChatProps {
     name: string;
   };
   auctionTitle: string;
+  auctionId: string;
 }
 
-function Chat({ seller, auctionTitle }: ChatProps) {
-  const messages = [
-    { id: 1, text: "Hi there!", type: "received", timestamp: "10:00 AM" },
-    {
-      id: 2,
-      text: "Hello! How can I help you today?",
-      type: "sent",
-      timestamp: "10:01 AM",
-    },
-    {
-      id: 3,
-      text: "I have an issue with my account.",
-      type: "received",
-      timestamp: "10:02 AM",
-    },
-    {
-      id: 4,
-      text: "Sure, I can help with that. Can you provide more details?",
-      type: "sent",
-      timestamp: "10:05 AM",
-    },
-    {
-      id: 5,
-      text: "Yes, my account balance is not showing correctly.",
-      type: "received",
-      timestamp: "10:07 AM",
-    },
-  ];
+function Chat({ seller, auctionTitle, auctionId }: ChatProps) {
+  const { data: session } = useSession();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const userId = session?.user?.id;
+
+  // Fetch existing messages
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (!userId || !auctionId) return;
+
+      try {
+        setIsLoading(true);
+        const response = await axios.get(`/api/messages/${auctionId}`);
+
+        // Format messages with sent/received type
+        const formattedMessages = response.data.map((msg: any) => ({
+          ...msg,
+          type: msg.senderId === userId ? "sent" : "received",
+          timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        }));
+
+        setMessages(formattedMessages);
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMessages();
+
+    // Set up polling for new messages
+    const interval = setInterval(fetchMessages, 5000);
+    return () => clearInterval(interval);
+  }, [userId, auctionId]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newMessage.trim() || !userId || !seller.id || !auctionId) return;
+
+    // Optimistically add message to UI
+    const tempMessage = {
+      id: Date.now().toString(),
+      text: newMessage,
+      type: "sent" as const,
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      senderId: userId,
+      recipientId: seller.id,
+      auctionId,
+      createdAt: new Date(),
+    };
+
+    setMessages([...messages, tempMessage]);
+    setNewMessage("");
+
+    try {
+      await axios.post("/api/messages", {
+        text: newMessage,
+        recipientId: seller.id,
+        auctionId,
+      });
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // Remove optimistic message on failure
+      setMessages(messages.filter((msg) => msg.id !== tempMessage.id));
+      alert("Failed to send message. Please try again.");
+    }
+  };
 
   return (
     <div className="flex flex-col h-full w-full border rounded-b-lg bg-white">
@@ -60,34 +129,57 @@ function Chat({ seller, auctionTitle }: ChatProps) {
         </div>
       </header>
       <div className="flex-1 overflow-y-auto p-4 space-y-2 h-[380px]">
-        {messages.map(({ id, text, type, timestamp }) => (
-          <div
-            key={id}
-            className={`flex ${type === "sent" ? "justify-end" : ""} `}
-          >
-            <div
-              className={`p-2 rounded-lg ${
-                type === "received" ? "bg-blue-200" : "bg-green-200"
-              } mb-4`}
-            >
-              <p>{text}</p>
-              <small className="block text-right text-xs text-gray-500">
-                {timestamp}
-              </small>
-            </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <p>Loading messages...</p>
           </div>
-        ))}
+        ) : messages.length === 0 ? (
+          <div className="flex justify-center items-center h-full text-gray-500">
+            <p>No messages yet. Start the conversation!</p>
+          </div>
+        ) : (
+          messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex ${
+                message.type === "sent" ? "justify-end" : ""
+              } `}
+            >
+              <div
+                className={`p-2 rounded-lg ${
+                  message.type === "received" ? "bg-blue-200" : "bg-green-200"
+                } mb-4`}
+              >
+                <p>{message.text}</p>
+                <small className="block text-right text-xs text-gray-500">
+                  {message.timestamp}
+                </small>
+              </div>
+            </div>
+          ))
+        )}
+        <div ref={messagesEndRef} />
       </div>
-      <div className="p-4 flex items-center bg-gray-100">
+      <form
+        onSubmit={handleSendMessage}
+        className="p-4 flex items-center bg-gray-100"
+      >
         <input
           type="text"
           placeholder="Type your message here..."
           className="flex-1 p-2 border-2 border-gray-300 rounded-lg focus:outline-none"
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          disabled={!session}
         />
-        <button className="ml-2 p-2 bg-blue-500 text-white rounded-lg flex items-center justify-center">
+        <button
+          type="submit"
+          className="ml-2 p-2 bg-blue-500 text-white rounded-lg flex items-center justify-center disabled:bg-gray-400"
+          disabled={!newMessage.trim() || !session}
+        >
           <MdSend />
         </button>
-      </div>
+      </form>
     </div>
   );
 }

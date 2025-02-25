@@ -17,11 +17,13 @@ model User {
   profile    Profile?
   createdAt  DateTime @default(now())
 
-  auctions  Auction[]      @relation("SellerAuctions")
-  bids      Bid[]          @relation("UserBids")
-  Comment   Comment[]
-  watchlist Watchlist[]
-  favorites UserFavorite[]
+  auctions         Auction[]      @relation("SellerAuctions")
+  bids             Bid[]          @relation("UserBids")
+  Comment          Comment[]
+  watchlist        Watchlist[]
+  favorites        UserFavorite[]
+  sentMessages     Message[]      @relation("SentMessages")
+  receivedMessages Message[]      @relation("ReceivedMessages")
 }
 
 model Profile {
@@ -66,6 +68,7 @@ model Auction {
   Comment       Comment[]
   watchlistedBy Watchlist[]
   favoritedBy   UserFavorite[]
+  messages      Message[]
 }
 
 model Bid {
@@ -115,6 +118,24 @@ model UserFavorite {
 
   @@unique([userId, auctionId])
   @@index([userId])
+  @@index([auctionId])
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  text        String
+  senderId    String
+  recipientId String
+  auctionId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sender    User    @relation(name: "SentMessages", fields: [senderId], references: [id])
+  recipient User    @relation(name: "ReceivedMessages", fields: [recipientId], references: [id])
+  auction   Auction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([recipientId])
   @@index([auctionId])
 }
 

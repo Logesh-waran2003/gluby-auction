@@ -139,6 +139,7 @@ export function AuctionCard({ auction }: AuctionCardProps) {
                 name: auction.seller.name,
               }}
               auctionTitle={auction.title}
+              auctionId={auction.id}
             />
           </div>
         </div>
