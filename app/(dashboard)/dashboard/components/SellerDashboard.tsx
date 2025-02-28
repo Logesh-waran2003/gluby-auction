@@ -69,6 +69,21 @@ export function SellerDashboard() {
     );
   }
 
+  if (auctions.length === 0) {
+    return (
+      <div className="text-center p-12 bg-muted rounded-lg">
+        <h3 className="text-xl font-medium mb-4">Create your first auction</h3>
+        <p className="text-muted-foreground mb-6">
+          You haven't created any auctions yet. Start selling by creating your
+          first auction.
+        </p>
+        <Link href="/auctions/create">
+          <Button size="lg">Create New Auction</Button>
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

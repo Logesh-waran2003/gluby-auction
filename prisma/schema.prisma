@@ -59,7 +59,7 @@ model Auction {
   seller       User          @relation("SellerAuctions", fields: [sellerId], references: [id])
   sellerId     String
   bids         Bid[]
-  status       AuctionStatus @default(DRAFT)
+  status       AuctionStatus @default(PENDING)
   isApproved   Boolean       @default(false)
   createdAt    DateTime      @default(now())
   endTime      DateTime
@@ -146,11 +146,8 @@ enum Role {
 }
 
 enum AuctionStatus {
-  DRAFT
   ACTIVE
   ENDED
-  CANCELLED
   PENDING
-  PENDING_APPROVAL
   REJECTED
 }

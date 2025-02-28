@@ -25,7 +25,7 @@ export async function GET() {
     const auctions = await prisma.auction.findMany({
       where: {
         status: AuctionStatus.ACTIVE,
-        isApproved: true,
+        // isApproved: true,
         // If user is a seller, only show their own auctions
         ...(isSeller && { sellerId: userId }),
       },

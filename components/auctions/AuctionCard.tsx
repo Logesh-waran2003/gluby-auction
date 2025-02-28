@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Chat from "../Chat";
+import { useAuthStore } from "@/store/authStore";
 
 interface AuctionCardProps {
   auction: {
@@ -38,6 +39,9 @@ interface AuctionCardProps {
 export function AuctionCard({ auction }: AuctionCardProps) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const router = useRouter();
+  const { user } = useAuthStore();
+
+  const userRole = user?.role;
 
   const handleViewDetails = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -108,7 +112,7 @@ export function AuctionCard({ auction }: AuctionCardProps) {
             setIsChatOpen(true);
           }}
         >
-          Chat with Seller
+          {userRole === "SELLER" ? "Chat with Winner" : "Chat with Seller"}
         </Button>
       </CardFooter>
 
