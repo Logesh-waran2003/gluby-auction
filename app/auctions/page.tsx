@@ -5,23 +5,6 @@ import { Button } from "@/components/ui/button";
 import { AuctionCard } from "@/components/auctions/AuctionCard";
 import { getUserAuctions } from "../actions/auctions";
 
-interface Auction {
-  id: string;
-  title: string;
-  description: string;
-  currentPrice: number;
-  images: string[];
-  status: string;
-  endTime: Date;
-  seller: {
-    id: string;
-    name: string;
-  };
-  _count: {
-    bids: number;
-  };
-}
-
 export default async function MyAuctions() {
   const session = await getServerSession(authOptions);
 

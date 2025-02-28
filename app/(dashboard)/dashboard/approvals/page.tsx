@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SellerDetailsModal } from "@/components/approvals/SellerDetailsModal";
 import { AuctionDetailsModal } from "@/components/approvals/AuctionDetailsModal";
 import { useState, useEffect } from "react";
-import { User, Auction, ApprovalsData } from "@/types";
+import { User, Auction } from "@/types";
 
 export default function ApprovalsPage() {
   const { data, loading, handleApproval } = useApprovals();
@@ -15,10 +15,10 @@ export default function ApprovalsPage() {
 
   useEffect(() => {
     if (data) {
-      console.log('Approvals Page - All Data:', {
+      console.log("Approvals Page - All Data:", {
         pendingSellers: data.pendingSellers,
         pendingAuctions: data.pendingAuctions,
-        totalUsers: data.totalUsers
+        totalUsers: data.totalUsers,
       });
     }
   }, [data]);

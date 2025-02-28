@@ -1,3 +1,5 @@
+"use client";
+
 import { formatDistanceToNow } from "date-fns";
 import Image from "next/image";
 import { useState } from "react";
@@ -12,14 +14,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import Chat from "../Chat";
 
 interface AuctionCardProps {
