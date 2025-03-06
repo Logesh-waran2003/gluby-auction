@@ -24,7 +24,7 @@ export async function GET() {
     // Fetch auctions based on user role
     const auctions = await prisma.auction.findMany({
       where: {
-        status: AuctionStatus.ACTIVE,
+        //status: AuctionStatus.ACTIVE,
         // isApproved: true,
         // If user is a seller, only show their own auctions
         ...(isSeller && { sellerId: userId }),

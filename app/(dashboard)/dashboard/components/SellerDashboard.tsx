@@ -42,6 +42,7 @@ export function SellerDashboard() {
         }
         const data = await response.json();
         setAuctions(data);
+        console.log("dataApproved: ", data);
       } catch (error) {
         console.error("Error fetching auctions:", error);
         setError("Failed to load auctions. Please try again later.");

@@ -31,6 +31,8 @@ export const authOptions: NextAuthOptions = {
           user.password
         );
 
+        console.log("Passwords match:", passwordsMatch);
+
         if (!passwordsMatch) {
           return null;
         }

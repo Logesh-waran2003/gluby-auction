@@ -75,6 +75,8 @@ async function main() {
     },
   });
 
+  console.log("Users created successfully! : ", admin);
+
   // Create auctions
   const auction1 = await prisma.auction.create({
     data: {

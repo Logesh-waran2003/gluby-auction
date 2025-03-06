@@ -1,3 +1,6 @@
+
+
+
 "use client";
 
 import { AuctionCard } from "@/components/auctions/AuctionCard";
@@ -32,7 +35,7 @@ interface Auction {
   _count: {
     bids: number;
   };
-  category?: string; // Optional category field
+  itemType?: string; // Changed from category to itemType
   isFavorite?: boolean; // Whether the current user has favorited this auction
 }
 
@@ -71,6 +74,7 @@ export function BuyerDashboard() {
         }));
 
         setAuctions(auctionsWithFavorites);
+        console.log("auctions: ", auctionsWithFavorites);
         setFilteredAuctions(auctionsWithFavorites);
 
         // Extract unique categories
@@ -99,13 +103,17 @@ export function BuyerDashboard() {
   }, []);
 
   useEffect(() => {
+    console.log("selectedCategory: ", selectedCategory);
+  }, [selectedCategory]);
+
+  useEffect(() => {
     // Apply all filters (search query, category, price range, favorites)
     const filtered = auctions.filter((auction) => {
       const matchesSearch = auction.title
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
       const matchesCategory =
-        selectedCategory === null || auction.category === selectedCategory;
+        selectedCategory === null || auction.itemType === selectedCategory;
       const matchesPrice =
         auction.currentPrice >= priceRange[0] &&
         auction.currentPrice <= priceRange[1];
@@ -214,7 +222,7 @@ export function BuyerDashboard() {
           <div className="w-full md:w-auto min-w-[180px]">
             <Select
               value={selectedCategory || undefined}
-              onValueChange={setSelectedCategory}
+              onValueChange={(value) => setSelectedCategory(value === "all" ? null : value)}
             >
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Category" />

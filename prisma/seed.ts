@@ -30,6 +30,7 @@ async function main() {
     },
   });
   console.log("Seed completed successfully!");
+  console.log("Admin: ", admin)
 }
 
 main()

@@ -2,7 +2,7 @@
 
 import { formatDistanceToNow } from "date-fns";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MdClose } from "react-icons/md";
 import { useRouter } from "next/navigation";
 import {
@@ -16,6 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import Chat from "../Chat";
 import { useAuthStore } from "@/store/authStore";
+import { getHighestBidder } from "@/lib/getHighestBid";
+import { useSession } from "next-auth/react";
 
 interface AuctionCardProps {
   auction: {
@@ -38,6 +40,15 @@ interface AuctionCardProps {
 
 export function AuctionCard({ auction }: AuctionCardProps) {
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  const [winnerInfo, setWinnerInfo] = useState({name: '', email: ''});
+
+  const {data: session} = useSession();
+
+  useEffect(() => {
+    console.log("session: ", session?.user?.name);
+  }, [session])
+
   const router = useRouter();
   const { user } = useAuthStore();
 
@@ -49,6 +60,24 @@ export function AuctionCard({ auction }: AuctionCardProps) {
   };
 
   console.log("auction: ", auction);
+
+
+
+
+
+
+  useEffect(() => {
+    const fetchHighestBidder = async () => {
+      const highestBid = await getHighestBidder(auction.id, auction.currentPrice);
+      console.log("highestBid: ", highestBid[0]?.bidder?.name);
+      setWinnerInfo({
+        name: highestBid[0]?.bidder?.name,
+        email: highestBid[0]?.bidder?.email
+      });
+    };
+
+    fetchHighestBidder();
+  }, []);
 
   return (
     <Card
@@ -88,6 +117,17 @@ export function AuctionCard({ auction }: AuctionCardProps) {
               {auction.status}
             </span>
           </p>
+           <p>
+            <span className="font-medium">WINNER:</span>{" "}
+            <span
+              className={
+                auction.status === "ACTIVE" ? "text-green-600" : "text-red-600"
+              }
+            >
+              {auction.status === "ACTIVE" ? "Yet to Be Announced" : winnerInfo.name}
+              
+            </span>
+          </p>
           <p>
             <span className="font-medium">Ends:</span>{" "}
             {formatDistanceToNow(new Date(auction.endTime), {
@@ -104,7 +144,9 @@ export function AuctionCard({ auction }: AuctionCardProps) {
         >
           View Details
         </Button>
-        <Button
+       {  ((auction.status != "ACTIVE") && userRole != "SELLER" && (session?.user.email === winnerInfo.email)) ?
+         <>
+         <Button
           variant="secondary"
           className="flex-1"
           onClick={(e) => {
@@ -112,8 +154,23 @@ export function AuctionCard({ auction }: AuctionCardProps) {
             setIsChatOpen(true);
           }}
         >
-          {userRole === "SELLER" ? "Chat with Winner" : "Chat with Seller"}
+          {"Chat With Seller"}
         </Button>
+         </> :
+          (userRole === "SELLER") ? 
+          <>
+         <Button
+          variant="secondary"
+          className="flex-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsChatOpen(true);
+          }}
+        >
+          {"Chat With Winner"}
+        </Button>
+         </> : <></>
+       }
       </CardFooter>
 
       {isChatOpen && (
