@@ -2,7 +2,7 @@
 
 import { formatDistanceToNow } from "date-fns";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { MdClose } from "react-icons/md";
 import { useRouter } from "next/navigation";
 import {
@@ -16,8 +16,10 @@ import {
 import { Button } from "@/components/ui/button";
 import Chat from "../Chat";
 import { useAuthStore } from "@/store/authStore";
-import { getHighestBidder } from "@/lib/getHighestBid";
 import { useSession } from "next-auth/react";
+import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
+import { AuctionStatus } from "@prisma/client";
 
 interface AuctionCardProps {
   auction: {
@@ -35,23 +37,19 @@ interface AuctionCardProps {
       id: string;
       name: string;
     };
+    winner?: {
+      id: string;
+      name: string;
+      email: string;
+    } | null;
   };
 }
 
 export function AuctionCard({ auction }: AuctionCardProps) {
   const [isChatOpen, setIsChatOpen] = useState(false);
-
-  const [winnerInfo, setWinnerInfo] = useState({name: '', email: ''});
-
-  const {data: session} = useSession();
-
-  useEffect(() => {
-    console.log("session: ", session?.user?.name);
-  }, [session])
-
+  const { data: session } = useSession();
   const router = useRouter();
   const { user } = useAuthStore();
-
   const userRole = user?.role;
 
   const handleViewDetails = (e: React.MouseEvent) => {
@@ -59,25 +57,21 @@ export function AuctionCard({ auction }: AuctionCardProps) {
     router.push(`/auctions/${auction.id}`);
   };
 
-  console.log("auction: ", auction);
+  const isAuctionEnded = auction.status == AuctionStatus.ENDED;
+  const isUserNotSeller = userRole !== "SELLER";
+  const isUserWinner = session?.user?.email === auction.winner?.email;
+  const isUserSeller = userRole === "SELLER";
 
-
-
-
-
-
-  useEffect(() => {
-    const fetchHighestBidder = async () => {
-      const highestBid = await getHighestBidder(auction.id, auction.currentPrice);
-      console.log("highestBid: ", highestBid[0]?.bidder?.name);
-      setWinnerInfo({
-        name: highestBid[0]?.bidder?.name,
-        email: highestBid[0]?.bidder?.email
-      });
-    };
-
-    fetchHighestBidder();
-  }, []);
+  const handleChatClick = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    if (!isAuctionEnded) {
+      toast.error(
+        "Auction is still active. You can chat with the seller only after the auction has ended."
+      );
+      return;
+    }
+    setIsChatOpen(true);
+  };
 
   return (
     <Card
@@ -117,15 +111,14 @@ export function AuctionCard({ auction }: AuctionCardProps) {
               {auction.status}
             </span>
           </p>
-           <p>
+          <p>
             <span className="font-medium">WINNER:</span>{" "}
             <span
-              className={
-                auction.status === "ACTIVE" ? "text-green-600" : "text-red-600"
-              }
+              className={isAuctionEnded ? "text-red-600" : "text-green-600"}
             >
-              {auction.status === "ACTIVE" ? "Yet to Be Announced" : winnerInfo.name}
-              
+              {auction.status === "ACTIVE"
+                ? "Yet to Be Announced"
+                : auction.winner?.name || "No bids placed"}
             </span>
           </p>
           <p>
@@ -144,33 +137,24 @@ export function AuctionCard({ auction }: AuctionCardProps) {
         >
           View Details
         </Button>
-       {  ((auction.status != "ACTIVE") && userRole != "SELLER" && (session?.user.email === winnerInfo.email)) ?
-         <>
-         <Button
-          variant="secondary"
-          className="flex-1"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsChatOpen(true);
-          }}
-        >
-          {"Chat With Seller"}
-        </Button>
-         </> :
-          (userRole === "SELLER") ? 
-          <>
-         <Button
-          variant="secondary"
-          className="flex-1"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsChatOpen(true);
-          }}
-        >
-          {"Chat With Winner"}
-        </Button>
-         </> : <></>
-       }
+
+        {isAuctionEnded && isUserNotSeller && isUserWinner ? (
+          <Button
+            variant="secondary"
+            className="flex-1"
+            onClick={handleChatClick}
+          >
+            Chat With Seller
+          </Button>
+        ) : isUserSeller && auction.winner ? (
+          <Button
+            variant="secondary"
+            className="flex-1"
+            onClick={handleChatClick}
+          >
+            Chat With Winner
+          </Button>
+        ) : null}
       </CardFooter>
 
       {isChatOpen && (

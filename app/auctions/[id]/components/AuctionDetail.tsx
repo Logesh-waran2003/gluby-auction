@@ -129,9 +129,6 @@ export function AuctionDetail({ auction, session }: AuctionDetailProps) {
           <p className="text-muted-foreground">
             Listed by {auction.seller.name}
           </p>
-          <p className="bg-slate-100 rounded-full p-1 w-12 font-bold">
-            {"IRON"}
-          </p>
         </div>
 
         <p className="text-lg">{auction.description}</p>
@@ -180,23 +177,6 @@ export function AuctionDetail({ auction, session }: AuctionDetailProps) {
               )}
           </div>
         </Card>
-
-        {/* {auction.bids.length > 0 && (
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Recent Bids</h2>
-            <div className="space-y-2">
-              {auction.bids.map((bid) => (
-                <div
-                  key={bid.id}
-                  className="flex justify-between items-center p-3 bg-muted rounded-lg"
-                >
-                  <span>{bid.bidder.name}</span>
-                  <span className="font-semibold">₹{bid.amount}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )} */}
       </div>
     </div>
   );

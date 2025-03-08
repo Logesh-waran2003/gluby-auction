@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,13 +31,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { UploadDropzone, UploadButton } from "@/lib/uploadthing-components"; // Updated import path
+import { X } from "lucide-react";
+import Image from "next/image";
 
-interface UploadResponse {
-  success: boolean;
-  paths?: string[];
-  error?: string;
-}
-
+// Updated schema without the file validation since UploadThing handles that
 const formSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
@@ -49,17 +47,8 @@ const formSchema = z.object({
   itemType: z.enum(["IRON", "METAL", "ALUMINIUM"], {
     required_error: "Please select an item type",
   }),
-  images: z
-    .array(z.any())
-    .refine(
-      (files) => files.every((file) => file instanceof File),
-      "Invalid file format"
-    )
-    .refine((files) => files.length >= 1, "At least one image is required")
-    .refine(
-      (files) => files.every((file) => file.size <= 4 * 1024 * 1024),
-      "File size must be less than 4MB"
-    ),
+  // Replace file validation with string URLs that we'll get from UploadThing
+  images: z.array(z.string()).min(1, "At least one image is required"),
 });
 
 type FormData = z.infer<typeof formSchema> & {
@@ -69,6 +58,8 @@ type FormData = z.infer<typeof formSchema> & {
 export function CreateAuctionForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -81,40 +72,59 @@ export function CreateAuctionForm() {
     },
   });
 
+  useEffect(() => {
+    console.log("uploadedImages", uploadedImages);
+  }, [uploadedImages]);
+
+  // Update form images field when uploads complete
+  const updateFormImages = (imageUrls: string[]) => {
+    setUploadedImages(imageUrls);
+    form.setValue("images", imageUrls);
+  };
+
+  // Remove image from the list
+  const removeImage = (imageUrl: string) => {
+    const updatedImages = uploadedImages.filter((url) => url !== imageUrl);
+    setUploadedImages(updatedImages);
+    form.setValue("images", updatedImages);
+  };
+
+  // Add this function to debug UploadThing events
+  const logUploadEvents = () => {
+    console.log("UploadThing component mounted and events attached");
+  };
+
+  useEffect(() => {
+    logUploadEvents();
+
+    // Add global event listeners to catch any file input changes
+    const handleFileInputChange = (e: Event) => {
+      console.log("File input changed:", (e.target as HTMLInputElement)?.files);
+    };
+
+    document.addEventListener("change", (e) => {
+      if (
+        (e.target as HTMLElement).tagName === "INPUT" &&
+        (e.target as HTMLInputElement).type === "file"
+      ) {
+        handleFileInputChange(e);
+      }
+    });
+
+    return () => {
+      document.removeEventListener("change", handleFileInputChange);
+    };
+  }, []);
+
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
     try {
-      console.log(
-        "[Form Submission] Initial data:",
-        JSON.stringify(data, null, 2)
-      );
-
-      // Upload images
-      const uploadFormData = new FormData();
-      data.images.forEach((file: File) => {
-        console.log("[Form Submission] Adding file:", file.name, file.size);
-        uploadFormData.append("files", file);
-      });
-      const uploadResponse = await fetch("/api/upload", {
-        method: "POST",
-        body: uploadFormData,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload images");
-      }
-
-      const uploadResult: UploadResponse = await uploadResponse.json();
-      console.log("[Form Submission] Upload response:", uploadResult);
-      const imagePaths = uploadResult.paths;
-
-      // Submit auction data
+      // Submit auction data directly with the image URLs
       const auctionResponse = await fetch("/api/auctions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
-          images: imagePaths,
           startPrice: Number(data.startPrice),
         }),
       });
@@ -179,6 +189,7 @@ export function CreateAuctionForm() {
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="itemType"
@@ -217,10 +228,14 @@ export function CreateAuctionForm() {
                       min="0"
                       step="0.01"
                       placeholder="0.00"
-                      {...field}
-                      onChange={(e) =>
-                        field.onChange(parseFloat(e.target.value))
-                      }
+                      value={field.value === 0 ? "" : field.value.toString()}
+                      onChange={(e) => {
+                        const value =
+                          e.target.value === ""
+                            ? 0
+                            : parseFloat(e.target.value);
+                        field.onChange(isNaN(value) ? 0 : value);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -253,14 +268,117 @@ export function CreateAuctionForm() {
                 <FormItem>
                   <FormLabel>Auction Images</FormLabel>
                   <FormControl>
-                    <Input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={(e) =>
-                        field.onChange(Array.from(e.target.files || []))
-                      }
-                    />
+                    <div className="space-y-4">
+                      {/* Simplified uploader with clear feedback */}
+                      <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                        <p className="mb-2 text-sm">
+                          Upload your auction images here
+                        </p>
+
+                        {/* UploadThing button instead of dropzone for more reliable interaction */}
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="block w-full max-w-xs mx-auto">
+                            <input
+                              type="file"
+                              className="w-full"
+                              accept="image/*"
+                              multiple
+                              onChange={(e) => {
+                                console.log("Files selected:", e.target.files);
+                                if (e.target.files?.length) {
+                                  toast.info(
+                                    `${e.target.files.length} files selected, preparing upload...`
+                                  );
+                                }
+                              }}
+                            />
+                          </div>
+
+                          {/* Regular button version */}
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              toast.info(
+                                "Please use the UploadThing button below"
+                              );
+                            }}
+                            className="mb-4"
+                          >
+                            Manual Upload (Debug)
+                          </Button>
+
+                          {/* Direct UploadThing button that should work */}
+                          <div className="py-2 px-4 border border-gray-300 rounded-md">
+                            <p className="text-sm text-gray-500 mb-2">
+                              Try the direct UploadThing button:
+                            </p>
+                            <UploadButton
+                              endpoint="imageUploader"
+                              onBeforeUploadBegin={(files) => {
+                                console.log(
+                                  "Button: Starting upload for files:",
+                                  files.length
+                                );
+                                setIsUploading(true);
+                                return files;
+                              }}
+                              onClientUploadComplete={(res) => {
+                                console.log("Button: Upload succeeded!", res);
+                                const imageUrls = res.map(
+                                  (file) => file.ufsUrl
+                                );
+                                updateFormImages([
+                                  ...uploadedImages,
+                                  ...imageUrls,
+                                ]);
+                                toast.success(
+                                  `${imageUrls.length} images uploaded successfully!`
+                                );
+                                setIsUploading(false);
+                              }}
+                              onUploadError={(error: Error) => {
+                                console.error("Button: Upload failed:", error);
+                                toast.error(`Upload Error: ${error.message}`);
+                                setIsUploading(false);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {isUploading && (
+                        <div className="flex justify-center items-center py-4">
+                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent mr-2"></div>
+                          <p>Uploading images...</p>
+                        </div>
+                      )}
+
+                      {/* Preview uploaded images */}
+                      {uploadedImages.length > 0 && (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+                          {uploadedImages.map((url, idx) => (
+                            <div
+                              key={idx}
+                              className="relative rounded-md overflow-hidden h-24"
+                            >
+                              <Image
+                                src={url}
+                                alt={`Uploaded image ${idx + 1}`}
+                                fill
+                                className="object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeImage(url)}
+                                className="absolute top-1 right-1 bg-black bg-opacity-50 rounded-full p-1"
+                              >
+                                <X className="h-4 w-4 text-white" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

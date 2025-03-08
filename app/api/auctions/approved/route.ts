@@ -21,12 +21,42 @@ export async function GET() {
 
     const isSeller = user?.role === Role.SELLER;
 
-    // Fetch auctions based on user role
+    // Check and update expired auctions
+    const now = new Date();
+    const expiredAuctions = await prisma.auction.findMany({
+      where: {
+        status: AuctionStatus.ACTIVE,
+        endTime: {
+          lt: now,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    // Update expired auctions status to ENDED
+    if (expiredAuctions.length > 0) {
+      const expiredIds = expiredAuctions.map((auction) => auction.id);
+      await prisma.auction.updateMany({
+        where: {
+          id: {
+            in: expiredIds,
+          },
+        },
+        data: {
+          status: AuctionStatus.ENDED,
+        },
+      });
+
+      console.log(
+        `Updated ${expiredAuctions.length} expired auctions to ENDED status.`
+      );
+    }
+
+    // Fetch auctions with updated statuses
     const auctions = await prisma.auction.findMany({
       where: {
-        //status: AuctionStatus.ACTIVE,
-        // isApproved: true,
-        // If user is a seller, only show their own auctions
         ...(isSeller && { sellerId: userId }),
       },
       include: {
@@ -34,6 +64,21 @@ export async function GET() {
           select: {
             id: true,
             name: true,
+          },
+        },
+        bids: {
+          orderBy: {
+            amount: "desc",
+          },
+          take: 1,
+          include: {
+            bidder: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
           },
         },
         _count: {
@@ -54,16 +99,25 @@ export async function GET() {
       userFavorites = favorites.map((fav) => fav.auctionId);
     }
 
-    // Add isFavorite flag to each auction
-    const auctionsWithFavorites = auctions.map((auction) => ({
-      ...auction,
-      isFavorite: userFavorites.includes(auction.id),
-    }));
+    // Add isFavorite flag and winner info to each auction
+    const auctionsWithEnhancements = auctions.map((auction) => {
+      const winner =
+        auction.status === AuctionStatus.ENDED && auction.bids.length > 0
+          ? auction.bids[0].bidder
+          : null;
 
-    return NextResponse.json(auctionsWithFavorites);
+      return {
+        ...auction,
+        isFavorite: userFavorites.includes(auction.id),
+        winner: winner,
+        // Remove the full bids array to keep response lean
+        bids: undefined,
+      };
+    });
+
+    return NextResponse.json(auctionsWithEnhancements);
   } catch (error) {
     console.error("Error fetching approved auctions:", error);
-    // Return a proper JSON error response
     return NextResponse.json(
       { error: "Failed to fetch auctions" },
       { status: 500 }

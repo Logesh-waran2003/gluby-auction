@@ -4,12 +4,12 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function clearDatabase() {
-  await prisma.watchlist.deleteMany({});
-  await prisma.comment.deleteMany({});
-  await prisma.bid.deleteMany({});
-  await prisma.auction.deleteMany({});
-  await prisma.profile.deleteMany({});
-  await prisma.user.deleteMany({});
+  await prisma.watchlist.deleteMany({ where: {} });
+  await prisma.comment.deleteMany({ where: {} });
+  await prisma.bid.deleteMany({ where: {} });
+  await prisma.auction.deleteMany({ where: {} });
+  await prisma.profile.deleteMany({ where: {} });
+  await prisma.user.deleteMany({ where: {} });
 }
 
 async function main() {
@@ -30,7 +30,7 @@ async function main() {
     },
   });
   console.log("Seed completed successfully!");
-  console.log("Admin: ", admin)
+  console.log("Admin: ", admin);
 }
 
 main()
