@@ -31,9 +31,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { UploadDropzone, UploadButton } from "@/lib/uploadthing-components"; // Updated import path
-import { X } from "lucide-react";
+import { UploadDropzone, UploadButton } from "@/lib/uploadthing-components";
+import { CalendarIcon, X } from "lucide-react";
 import Image from "next/image";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 // Updated schema without the file validation since UploadThing handles that
 const formSchema = z.object({
@@ -247,15 +255,86 @@ export function CreateAuctionForm() {
               control={form.control}
               name="endTime"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>End Time</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="datetime-local"
-                      min={new Date().toISOString().slice(0, 16)}
-                      {...field}
-                    />
-                  </FormControl>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? (
+                            format(new Date(field.value), "PPP p")
+                          ) : (
+                            <span>Select end date and time</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={
+                          field.value ? new Date(field.value) : undefined
+                        }
+                        onSelect={(date) => {
+                          if (date) {
+                            // For date selection, preserve any current time or set to current time
+                            const currentDate = field.value
+                              ? new Date(field.value)
+                              : new Date();
+                            date.setHours(
+                              currentDate.getHours(),
+                              currentDate.getMinutes()
+                            );
+                            field.onChange(date.toISOString());
+                          }
+                        }}
+                        disabled={(date) => date < new Date()}
+                        initialFocus
+                      />
+                      <div className="p-3 border-t border-border">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Time:</span>
+                          <Input
+                            type="time"
+                            className="w-32"
+                            value={
+                              field.value
+                                ? format(new Date(field.value), "HH:mm")
+                                : ""
+                            }
+                            onChange={(e) => {
+                              if (e.target.value && field.value) {
+                                const [hours, minutes] =
+                                  e.target.value.split(":");
+                                const date = new Date(field.value);
+                                date.setHours(
+                                  parseInt(hours),
+                                  parseInt(minutes)
+                                );
+                                field.onChange(date.toISOString());
+                              } else if (e.target.value) {
+                                const [hours, minutes] =
+                                  e.target.value.split(":");
+                                const date = new Date();
+                                date.setHours(
+                                  parseInt(hours),
+                                  parseInt(minutes)
+                                );
+                                field.onChange(date.toISOString());
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}
@@ -269,80 +348,53 @@ export function CreateAuctionForm() {
                   <FormLabel>Auction Images</FormLabel>
                   <FormControl>
                     <div className="space-y-4">
-                      {/* Simplified uploader with clear feedback */}
-                      <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                        <p className="mb-2 text-sm">
-                          Upload your auction images here
-                        </p>
-
-                        {/* UploadThing button instead of dropzone for more reliable interaction */}
+                      {/* Simplified uploader with better UI */}
+                      <div className="border-2 border-dashed rounded-lg p-6 text-center">
                         <div className="flex flex-col items-center gap-4">
-                          <div className="block w-full max-w-xs mx-auto">
-                            <input
-                              type="file"
-                              className="w-full"
-                              accept="image/*"
-                              multiple
-                              onChange={(e) => {
-                                console.log("Files selected:", e.target.files);
-                                if (e.target.files?.length) {
-                                  toast.info(
-                                    `${e.target.files.length} files selected, preparing upload...`
-                                  );
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {/* Regular button version */}
-                          <Button
-                            type="button"
-                            onClick={() => {
-                              toast.info(
-                                "Please use the UploadThing button below"
-                              );
-                            }}
-                            className="mb-4"
-                          >
-                            Manual Upload (Debug)
-                          </Button>
-
-                          {/* Direct UploadThing button that should work */}
-                          <div className="py-2 px-4 border border-gray-300 rounded-md">
-                            <p className="text-sm text-gray-500 mb-2">
-                              Try the direct UploadThing button:
+                          <div className="mb-2">
+                            <h4 className="text-sm font-medium">
+                              Upload Item Photos
+                            </h4>
+                            <p className="text-sm text-gray-500">
+                              Add up to 5 images of your item to showcase
+                              details
                             </p>
-                            <UploadButton
-                              endpoint="imageUploader"
-                              onBeforeUploadBegin={(files) => {
-                                console.log(
-                                  "Button: Starting upload for files:",
-                                  files.length
-                                );
-                                setIsUploading(true);
-                                return files;
-                              }}
-                              onClientUploadComplete={(res) => {
-                                console.log("Button: Upload succeeded!", res);
-                                const imageUrls = res.map(
-                                  (file) => file.ufsUrl
-                                );
-                                updateFormImages([
-                                  ...uploadedImages,
-                                  ...imageUrls,
-                                ]);
-                                toast.success(
-                                  `${imageUrls.length} images uploaded successfully!`
-                                );
-                                setIsUploading(false);
-                              }}
-                              onUploadError={(error: Error) => {
-                                console.error("Button: Upload failed:", error);
-                                toast.error(`Upload Error: ${error.message}`);
-                                setIsUploading(false);
-                              }}
-                            />
                           </div>
+
+                          {/* Only keep the working UploadThing button */}
+                          <UploadButton
+                            endpoint="imageUploader"
+                            appearance={{
+                              button:
+                                "bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md",
+                              container: "w-full max-w-xs",
+                            }}
+                            onBeforeUploadBegin={(files) => {
+                              console.log(
+                                "Starting upload for files:",
+                                files.length
+                              );
+                              setIsUploading(true);
+                              return files;
+                            }}
+                            onClientUploadComplete={(res) => {
+                              console.log("Upload succeeded!", res);
+                              const imageUrls = res.map((file) => file.ufsUrl);
+                              updateFormImages([
+                                ...uploadedImages,
+                                ...imageUrls,
+                              ]);
+                              toast.success(
+                                `${imageUrls.length} images uploaded successfully!`
+                              );
+                              setIsUploading(false);
+                            }}
+                            onUploadError={(error: Error) => {
+                              console.error("Upload failed:", error);
+                              toast.error(`Upload Error: ${error.message}`);
+                              setIsUploading(false);
+                            }}
+                          />
                         </div>
                       </div>
 
@@ -355,27 +407,32 @@ export function CreateAuctionForm() {
 
                       {/* Preview uploaded images */}
                       {uploadedImages.length > 0 && (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                          {uploadedImages.map((url, idx) => (
-                            <div
-                              key={idx}
-                              className="relative rounded-md overflow-hidden h-24"
-                            >
-                              <Image
-                                src={url}
-                                alt={`Uploaded image ${idx + 1}`}
-                                fill
-                                className="object-cover"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removeImage(url)}
-                                className="absolute top-1 right-1 bg-black bg-opacity-50 rounded-full p-1"
+                        <div>
+                          <p className="text-sm font-medium mb-2">
+                            Uploaded Images ({uploadedImages.length})
+                          </p>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {uploadedImages.map((url, idx) => (
+                              <div
+                                key={idx}
+                                className="relative rounded-md overflow-hidden h-24 border border-gray-200 group"
                               >
-                                <X className="h-4 w-4 text-white" />
-                              </button>
-                            </div>
-                          ))}
+                                <Image
+                                  src={url}
+                                  alt={`Uploaded image ${idx + 1}`}
+                                  fill
+                                  className="object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeImage(url)}
+                                  className="absolute top-1 right-1 bg-black bg-opacity-70 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="h-4 w-4 text-white" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
