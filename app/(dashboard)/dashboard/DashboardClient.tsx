@@ -4,6 +4,10 @@ import { Role } from "@prisma/client";
 import { useApprovals } from "@/hooks/useApprovals";
 import { BuyerDashboard } from "./components/BuyerDashboard";
 import { SellerDashboard } from "./components/SellerDashboard";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface DashboardClientProps {
   user: {
@@ -17,15 +21,72 @@ interface DashboardClientProps {
 
 export function DashboardClient({ user }: DashboardClientProps) {
   const { data, loading } = useApprovals();
+  const [processingAuctions, setProcessingAuctions] = useState(false);
+  const [processingResults, setProcessingResults] = useState<any>(null);
+
+  const handleProcessAuctions = async () => {
+    try {
+      setProcessingAuctions(true);
+      setProcessingResults(null);
+
+      const response = await fetch("/api/auctions/process-ended", {
+        method: "POST",
+      });
+
+      const result = await response.json();
+      setProcessingResults(result);
+
+      if (response.ok) {
+        if (result.processed === 0) {
+          toast.info("No auctions to process", {
+            description: "There are no active auctions that have ended.",
+          });
+        } else if (result.successfulAuctions === 0) {
+          toast.info(`Processed ${result.processed} auctions`, {
+            description: "No points were awarded because none had bids.",
+          });
+        } else {
+          toast.success(`Processed ${result.processed} auctions`, {
+            description: `Awarded ${result.pointsAwarded} points across ${result.successfulAuctions} successful auctions.`,
+          });
+        }
+      } else {
+        throw new Error(result.message || "Failed to process auctions");
+      }
+    } catch (error) {
+      console.error("Error processing auctions:", error);
+      toast.error("Failed to process auctions", {
+        description: "There was an error processing the ended auctions.",
+      });
+    } finally {
+      setProcessingAuctions(false);
+    }
+  };
 
   const renderRoleSpecificContent = () => {
     switch (user.role) {
       case Role.SUPER_ADMIN:
         return (
           <div className="w-full">
-            <h2 className="text-3xl font-semibold text-indigo-800 mb-4">
-              Admin Overview
-            </h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-semibold text-indigo-800">
+                Admin Overview
+              </h2>
+              <Button
+                variant="outline"
+                onClick={handleProcessAuctions}
+                disabled={processingAuctions}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw
+                  size={16}
+                  className={processingAuctions ? "animate-spin" : ""}
+                />
+                {processingAuctions
+                  ? "Processing..."
+                  : "Process Ended Auctions"}
+              </Button>
+            </div>
             <div
               className="grid grid-cols-1 md:grid-cols-3 gap-6 p-5 
                 bg-white/10 backdrop-blur-lg shadow-lg rounded-xl border border-white/20"
@@ -54,14 +115,12 @@ export function DashboardClient({ user }: DashboardClientProps) {
       case Role.SELLER:
         return (
           <div className="w-full">
-            <h2 className="text-2xl font-semibold mb-4">Seller Dashboard</h2>
             <SellerDashboard />
           </div>
         );
       case Role.BUYER:
         return (
           <div className="w-full">
-            <h2 className="text-2xl font-semibold mb-4">Buyer Dashboard</h2>
             <BuyerDashboard />
           </div>
         );
@@ -71,8 +130,10 @@ export function DashboardClient({ user }: DashboardClientProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-gray-100 px-8 py-6 flex flex-col">
-      <main className="w-full max-w-6xl">{renderRoleSpecificContent()}</main>
-    </div>
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-gray-100 px-8 py-6 flex flex-col">
+        <main className="">{renderRoleSpecificContent()}</main>
+      </div>
+    </>
   );
 }

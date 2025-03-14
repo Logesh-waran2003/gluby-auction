@@ -1,6 +1,3 @@
-
-
-
 "use client";
 
 import { AuctionCard } from "@/components/auctions/AuctionCard";
@@ -222,7 +219,9 @@ export function BuyerDashboard() {
           <div className="w-full md:w-auto min-w-[180px]">
             <Select
               value={selectedCategory || undefined}
-              onValueChange={(value) => setSelectedCategory(value === "all" ? null : value)}
+              onValueChange={(value) =>
+                setSelectedCategory(value === "all" ? null : value)
+              }
             >
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Category" />

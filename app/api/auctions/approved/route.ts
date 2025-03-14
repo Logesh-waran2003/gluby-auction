@@ -54,10 +54,51 @@ export async function GET() {
       );
     }
 
+    // For buyer, find auctions where they are the highest bidder
+    let auctionsWithHighestBids: any[] = [];
+    const isBuyer = user?.role === Role.BUYER;
+
+    if (isBuyer) {
+      // Get auctions where the user is the highest bidder
+      auctionsWithHighestBids = await prisma.auction.findMany({
+        where: {
+          bids: {
+            some: {
+              bidderId: userId,
+              auction: {
+                bids: {
+                  none: {
+                    NOT: {
+                      bidderId: userId,
+                    },
+                    amount: {
+                      gt: prisma.bid.fields.amount,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        select: { id: true },
+      });
+    }
+
     // Fetch auctions with updated statuses
     const auctions = await prisma.auction.findMany({
       where: {
-        ...(isSeller && { sellerId: userId }),
+        OR: [
+          // For sellers: show only their auctions
+          ...(isSeller ? [{ sellerId: userId }] : []),
+
+          // For buyers: show active auctions + auctions where they're highest bidder
+          ...(isBuyer
+            ? [
+                { status: AuctionStatus.ACTIVE },
+                { id: { in: auctionsWithHighestBids.map((a) => a.id) } },
+              ]
+            : []),
+        ],
       },
       include: {
         seller: {

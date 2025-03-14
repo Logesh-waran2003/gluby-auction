@@ -34,7 +34,14 @@ interface AuctionDetailProps {
       bids: number;
     };
   };
-  session: Session | null;
+  session:
+    | (Session & {
+        user: {
+          id: string;
+          amount?: number;
+        };
+      })
+    | null;
 }
 
 export function AuctionDetail({ auction, session }: AuctionDetailProps) {
@@ -67,7 +74,14 @@ export function AuctionDetail({ auction, session }: AuctionDetailProps) {
       return;
     }
 
+    // Check if user has sufficient balance before sending request
+    if (session.user.amount !== undefined && bidAmount > session.user.amount) {
+      toast.error("Insufficient funds to place this bid");
+      return;
+    }
+
     setIsLoading(true);
+    console.log("session", session);
 
     try {
       const response = await fetch("/api/bids", {
@@ -82,15 +96,17 @@ export function AuctionDetail({ auction, session }: AuctionDetailProps) {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to place bid");
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || "Failed to place bid");
       }
 
       toast.success("Bid placed successfully!");
-      // Refresh the page to show the new bid
       window.location.reload();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.error("Failed to place bid");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to place bid"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -158,6 +174,18 @@ export function AuctionDetail({ auction, session }: AuctionDetailProps) {
               new Date(auction.endTime) > new Date() &&
               session?.user.id !== auction.sellerId && (
                 <div className="space-y-2">
+                  {/* Display user's balance */}
+                  {session?.user.amount !== undefined && (
+                    <div className="flex items-center justify-between mb-2 text-sm">
+                      <span className="text-muted-foreground">
+                        Your balance:
+                      </span>
+                      <span className="font-medium text-indigo-600">
+                        ₹{session.user.amount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex gap-2">
                     <Input
                       type="number"

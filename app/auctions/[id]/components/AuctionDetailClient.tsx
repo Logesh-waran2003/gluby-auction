@@ -21,13 +21,19 @@ export default function AuctionDetailClient({
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Check if the current user is not the seller
-  const isNotSeller = session?.user?.id !== auction.sellerId;
+  const isNotSeller = session?.user?.id === auction.sellerId;
   const isUserWinner = session?.user?.email === auction.winner?.email;
   const isAuctionEnded = auction.status === AuctionStatus.ENDED;
   const isSeller = session?.user?.id === auction.sellerId;
 
   // Show certificate button if the auction has ended and user is either the seller or the winner
   const showCertificateButton = isAuctionEnded && (isSeller || isUserWinner);
+  const showChatButton = isSeller || isUserWinner;
+
+  console.log("auction from AuctionDetailClient: ", auction);
+  console.log("session from AuctionDetailClient: ", session);
+  console.log("showChatButton", showChatButton);
+  console.log("isSeller", isSeller);
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -35,13 +41,13 @@ export default function AuctionDetailClient({
 
       <div className="mt-6 flex flex-wrap gap-4">
         {/* Chat button */}
-        {session && isNotSeller && isUserWinner && (
+        {showChatButton && (
           <Button
             variant="secondary"
             size="lg"
             onClick={() => setIsChatOpen(true)}
           >
-            Chat with Seller
+            {isSeller ? "Chat with Winner" : "Chat with Seller"}
           </Button>
         )}
 

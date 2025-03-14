@@ -50,12 +50,25 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        return {
-          ...token,
-          id: user.id,
-          role: user.role,
-        };
+        token.id = user.id;
+        token.role = user.role;
       }
+
+      // Always fetch the current amount from database to ensure it's up-to-date
+      // This runs on every request that requires the JWT
+      const userData = await prisma.user.findUnique({
+        where: { id: token.id as string },
+        select: {
+          amount: true,
+          points: true,
+        },
+      });
+
+      if (userData) {
+        token.amount = userData.amount;
+        token.points = userData.points;
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -65,6 +78,8 @@ export const authOptions: NextAuthOptions = {
           ...session.user,
           id: token.id,
           role: token.role,
+          amount: token.amount as number, // Include amount in session
+          points: token.points as number, // Include points in session
         },
       };
     },

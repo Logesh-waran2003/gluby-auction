@@ -15,6 +15,9 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Card } from "@/components/ui/card";
 import { Search, FilterX } from "lucide-react";
+import { showPointsEarnedToast } from "@/components/ui/PointsNotification";
+import { FiAward, FiTrendingUp } from "react-icons/fi";
+import { motion } from "framer-motion";
 
 interface Auction {
   id: string;
@@ -40,6 +43,11 @@ export function SellerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [recentlyEndedAuctions, setRecentlyEndedAuctions] = useState<any[]>([]);
+  // Add state to track notifications we've already shown
+  const [shownNotifications, setShownNotifications] = useState<Set<string>>(
+    new Set()
+  );
 
   // New filter states
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -76,6 +84,29 @@ export function SellerDashboard() {
         setPriceRange([0, highestPrice]);
 
         console.log("Auctions Approved: ", data);
+
+        // Fetch recently ended auctions (last 24 hours)
+        const recentlyEndedResponse = await fetch(
+          "/api/auctions/recently-ended"
+        );
+        if (recentlyEndedResponse.ok) {
+          const recentlyEnded = await recentlyEndedResponse.json();
+          setRecentlyEndedAuctions(recentlyEnded);
+
+          // Only show notifications for auctions we haven't shown yet
+          recentlyEnded.forEach(
+            (auction: { id: string; pointsAwarded: number; title: string }) => {
+              if (
+                auction.pointsAwarded > 0 &&
+                !shownNotifications.has(auction.id)
+              ) {
+                showPointsEarnedToast(auction.title, auction.pointsAwarded);
+                // Track that we've shown this notification
+                setShownNotifications((prev) => new Set(prev).add(auction.id));
+              }
+            }
+          );
+        }
       } catch (error) {
         console.error("Error fetching auctions:", error);
         setError("Failed to load auctions. Please try again later.");
@@ -85,7 +116,7 @@ export function SellerDashboard() {
     };
 
     fetchAuctions();
-  }, []);
+  }, [shownNotifications]); // Add shownNotifications as a dependency
 
   // Apply filters whenever filter criteria change
   useEffect(() => {
@@ -143,6 +174,51 @@ export function SellerDashboard() {
     );
   }
 
+  const renderPointsEarnedHeader = () => {
+    if (recentlyEndedAuctions.length === 0) return null;
+
+    // Calculate total points from recently ended auctions
+    const totalRecentPoints = recentlyEndedAuctions.reduce(
+      (sum, auction) => sum + (auction.pointsAwarded || 0),
+      0
+    );
+
+    if (totalRecentPoints <= 0) return null;
+
+    return (
+      <div className="mb-6">
+        <motion.div
+          className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-4 shadow-sm"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="h-10 w-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-md mr-3">
+                <FiAward className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-amber-800">
+                  Recently Earned Points
+                </h3>
+                <p className="text-sm text-amber-600">
+                  From your recently ended auctions
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center bg-white px-4 py-2 rounded-full shadow border border-amber-200">
+              <FiTrendingUp className="text-amber-500 mr-2" />
+              <span className="text-xl font-bold text-amber-700">
+                +{totalRecentPoints}
+              </span>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -152,8 +228,10 @@ export function SellerDashboard() {
         </Link>
       </div>
 
+      {renderPointsEarnedHeader()}
+
       <Card className="p-3">
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 items-center">
           {/* Search input */}
           <div className="relative flex-grow min-w-[200px]">
             <Search
@@ -206,8 +284,8 @@ export function SellerDashboard() {
         {/* Price range */}
         <div className="mt-3 px-1">
           <div className="flex justify-between text-sm text-muted-foreground mb-1.5">
-            <span>Price: ${priceRange[0]}</span>
-            <span>${priceRange[1]}</span>
+            <span>Price: ₹{priceRange[0].toLocaleString()}</span>
+            <span>₹{priceRange[1].toLocaleString()}</span>
           </div>
           <Slider
             defaultValue={[0, maxPrice]}
@@ -218,7 +296,12 @@ export function SellerDashboard() {
             onValueChange={(value: number[]) =>
               setPriceRange(value as [number, number])
             }
+            className="mt-2 w-full"
           />
+          <div className="flex justify-between text-xs text-muted-foreground mt-1">
+            <span>₹0</span>
+            <span>₹{maxPrice.toLocaleString()}</span>
+          </div>
         </div>
       </Card>
 

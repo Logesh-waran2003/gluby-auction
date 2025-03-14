@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import { Role } from "@prisma/client";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
-import { FiUser, FiX } from "react-icons/fi";
+import { FiUser, FiX, FiDollarSign, FiAward } from "react-icons/fi";
 
 interface NavbarProps {
   user: {
     name?: string | null;
     role: Role;
+    amount?: number;
+    points?: number;
   };
 }
 
@@ -25,7 +27,10 @@ export function Navbar({ user }: NavbarProps) {
   };
 
   const navItems = {
-    [Role.SUPER_ADMIN]: [{ label: "Approvals", href: "/dashboard/approvals" }],
+    [Role.SUPER_ADMIN]: [
+      { label: "Approvals", href: "/dashboard/approvals" },
+      { label: "User Management", href: "/admin/users" },
+    ],
     [Role.SELLER]: [
       { label: "Create Auction", href: "/auctions/create" },
       // { label: "My Auctions", href: "/auctions" },
@@ -69,6 +74,25 @@ export function Navbar({ user }: NavbarProps) {
           </div>
         </div>
 
+        {/* Balance Display - Removed hidden md:flex to show on all screen sizes */}
+        {user.role === Role.BUYER && typeof user.amount === "number" && (
+          <div className="flex items-center bg-indigo-100 px-4 py-2 rounded-full shadow-sm border border-indigo-200 mr-4">
+            <FiDollarSign className="text-indigo-600 mr-2" />
+            <span className="font-semibold text-indigo-800">
+              ${user.amount.toFixed(2)}
+            </span>
+          </div>
+        )}
+
+        {user.role === Role.SELLER && typeof user.points === "number" && (
+          <div className="hidden md:flex items-center bg-amber-100 px-4 py-2 rounded-full shadow-sm border border-amber-200 mr-4">
+            <FiAward className="text-amber-600 mr-2" />
+            <span className="font-semibold text-amber-800">
+              {user.points} points
+            </span>
+          </div>
+        )}
+
         {/* Right Section - Profile Icon */}
         <button
           className="w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 transition-all"
@@ -81,7 +105,7 @@ export function Navbar({ user }: NavbarProps) {
 
       {/* Sidebar Menu */}
       <aside
-        className={`fixed top-0 right-0 h-full w-72 bg-gradient-to-br from-indigo-50 to-white/70 backdrop-blur-lg shadow-xl rounded-l-2xl border border-gray-300 transform transition-transform duration-300 ${
+        className={`fixed top-0 right-0 h-full w-72 bg-gradient-to-br from-indigo-50 to-white/70 backdrop-blur-lg shadow-xl rounded-l-2xl border border-gray-300 transform transition-transform duration-300 z-50 ${
           isSidebarOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -96,6 +120,35 @@ export function Navbar({ user }: NavbarProps) {
           </button>
         </div>
 
+        {/* Show balance/points in sidebar too */}
+        {user.role === Role.BUYER && typeof user.amount === "number" && (
+          <div className="px-6 pt-4 pb-2">
+            <div className="flex items-center bg-indigo-100 px-4 py-3 rounded-lg">
+              <FiDollarSign className="text-indigo-600 mr-2" size={18} />
+              <div>
+                <p className="text-xs text-indigo-600">Your Balance</p>
+                <p className="font-semibold text-indigo-800">
+                  ${user.amount.toFixed(2)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {user.role === Role.SELLER && typeof user.points === "number" && (
+          <div className="px-6 pt-4 pb-2">
+            <div className="flex items-center bg-amber-100 px-4 py-3 rounded-lg">
+              <FiAward className="text-amber-600 mr-2" size={18} />
+              <div>
+                <p className="text-xs text-amber-600">Your Points</p>
+                <p className="font-semibold text-amber-800">
+                  {user.points} points
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Sidebar Links */}
         <ul className="mt-4 space-y-6 p-6">
           <li>
@@ -106,20 +159,9 @@ export function Navbar({ user }: NavbarProps) {
                   ? "font-bold text-indigo-700"
                   : "text-gray-700 hover:text-indigo-600"
               }`}
+              onClick={() => setIsSidebarOpen(false)}
             >
               Profile
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/settings"
-              className={`block text-lg transition ${
-                pathname === "/settings"
-                  ? "font-bold text-indigo-700"
-                  : "text-gray-700 hover:text-indigo-600"
-              }`}
-            >
-              Settings
             </Link>
           </li>
           <li>

@@ -14,6 +14,8 @@ model User {
   password   String
   role       Role     @default(BUYER)
   isApproved Boolean  @default(false) // Used for seller approval
+  amount     Float    @default(0) // Funds that admin can add for buyers
+  points     Int      @default(0) // Token points earned from successful auctions
   profile    Profile?
   createdAt  DateTime @default(now())
 

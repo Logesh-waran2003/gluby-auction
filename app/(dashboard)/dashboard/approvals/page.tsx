@@ -8,8 +8,22 @@ import { AuctionDetailsModal } from "@/components/approvals/AuctionDetailsModal"
 import { useState, useEffect } from "react";
 import { User, Auction } from "@/types";
 
+interface ApprovalsData {
+  pendingSellers: User[];
+  pendingAuctions: Auction[];
+  totalUsers: number;
+}
+
 export default function ApprovalsPage() {
-  const { data, loading, handleApproval } = useApprovals();
+  const { data, loading, handleApproval } = useApprovals() as {
+    data: ApprovalsData;
+    loading: boolean;
+    handleApproval: (
+      type: "seller" | "auction",
+      id: string,
+      approve: boolean
+    ) => void;
+  };
   const [selectedItem, setSelectedItem] = useState<User | Auction | null>(null);
   const [modalType, setModalType] = useState<"seller" | "auction" | null>(null);
 
