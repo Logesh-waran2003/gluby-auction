@@ -6,6 +6,8 @@ import Chat from "@/components/Chat";
 import { Button } from "@/components/ui/button";
 import { AuctionDetail } from "./AuctionDetail";
 import { Session } from "next-auth";
+import Link from "next/link";
+import { AuctionStatus } from "@prisma/client";
 
 interface AuctionDetailClientProps {
   auction: any; // Use a proper type definition matching your auction data
@@ -20,24 +22,38 @@ export default function AuctionDetailClient({
 
   // Check if the current user is not the seller
   const isNotSeller = session?.user?.id !== auction.sellerId;
+  const isUserWinner = session?.user?.email === auction.winner?.email;
+  const isAuctionEnded = auction.status === AuctionStatus.ENDED;
+  const isSeller = session?.user?.id === auction.sellerId;
+
+  // Show certificate button if the auction has ended and user is either the seller or the winner
+  const showCertificateButton = isAuctionEnded && (isSeller || isUserWinner);
 
   return (
     <div className="container mx-auto py-8 px-4">
       <AuctionDetail auction={auction} session={session} />
 
-      {/* Only show chat button if user is logged in and is not the seller */}
-      {session && isNotSeller && (
-        <div className="mt-6">
+      <div className="mt-6 flex flex-wrap gap-4">
+        {/* Chat button */}
+        {session && isNotSeller && isUserWinner && (
           <Button
             variant="secondary"
             size="lg"
-            className="w-full md:w-auto"
             onClick={() => setIsChatOpen(true)}
           >
             Chat with Seller
           </Button>
-        </div>
-      )}
+        )}
+
+        {/* Certificate button */}
+        {showCertificateButton && (
+          <Link href={`/auctions/${auction.id}/certificate`}>
+            <Button variant="outline" size="lg">
+              View Certificate
+            </Button>
+          </Link>
+        )}
+      </div>
 
       {isChatOpen && (
         <div className="fixed bottom-4 right-4 z-50 shadow-xl rounded-lg">

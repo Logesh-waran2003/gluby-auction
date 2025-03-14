@@ -36,6 +36,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "hooks": "link:@uploadthing/react/hooks",
+    "html2pdf.js": "^0.10.1",
     "lucide-react": "^0.475.0",
     "next": "15.1.6",
     "next-auth": "^4.24.11",
