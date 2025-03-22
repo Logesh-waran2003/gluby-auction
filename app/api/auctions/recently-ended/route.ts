@@ -14,13 +14,15 @@ export async function GET(request: NextRequest) {
     // Only get recently ended auctions (last 24 hours)
     const oneDayAgo = new Date();
     oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+    const now = new Date();
 
     const recentlyEndedAuctions = await prisma.auction.findMany({
       where: {
         sellerId: session.user.id,
         status: "ENDED",
-        updatedAt: {
+        endTime: {
           gte: oneDayAgo,
+          lte: now,
         },
       },
       include: {
@@ -29,7 +31,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: {
-        updatedAt: "desc",
+        endTime: "desc",
       },
     });
 
