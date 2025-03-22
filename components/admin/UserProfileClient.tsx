@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AddFundsForm from "@/components/admin/AddFundsForm";
+import RedeemPointsForm from "@/components/admin/RedeemPointsForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "../ui/button";
@@ -28,24 +29,46 @@ interface UserProfileClientProps {
 
 export default function UserProfileClient({ user }: UserProfileClientProps) {
   const [currentBalance, setCurrentBalance] = useState(user.amount);
+  const [points, setPoints] = useState(user.points);
   const { toast } = useToast();
+
+  // Debug toast functionality
+  useEffect(() => {
+    // Test toast on component mount
+    toast({
+      title: "Debug toast",
+      description: "Testing toast visibility",
+      variant: "default",
+    });
+  }, [toast]);
 
   const handleSuccessfulFundsAdd = (newBalance: number) => {
     setCurrentBalance(newBalance);
 
-    // Show a success toast notification
+    // Fixed toast to use correct variant
     toast({
       title: "Funds added successfully",
       description: `New balance: $${newBalance.toFixed(2)}`,
-      variant: "success",
+      variant: "default", // Changed from "success" to "default"
     });
   };
 
-  const [points, setPoints] = useState(user.points)
+  const handleSuccessfulPointsRedeem = (
+    newPoints: number,
+    newBalance: number
+  ) => {
+    setPoints(newPoints);
+    setCurrentBalance(newBalance);
 
-const redeemPoints = () => {
- setPoints
-}
+    // Fixed toast to use correct variant
+    toast({
+      title: "Points redeemed successfully",
+      description: `New points: ${newPoints}, New balance: $${newBalance.toFixed(
+        2
+      )}`,
+      variant: "default", // Changed from "success" to "default"
+    });
+  };
 
   return (
     <>
@@ -110,7 +133,7 @@ const redeemPoints = () => {
                         Points
                       </p>
                       <p className="text-xl font-semibold text-gray-900">
-                        {user.points}
+                        {points}
                       </p>
                     </div>
 
@@ -162,199 +185,29 @@ const redeemPoints = () => {
             </Tabs>
           </div>
         </div>
-        {user.role == "BUYER" ?
-        
-        <div>
-          <AddFundsForm
-            userId={user.id}
-            userName={user.name}
-            currentBalance={currentBalance}
-            onSuccess={handleSuccessfulFundsAdd}
+        {user.role === "BUYER" ? (
+          <div>
+            <AddFundsForm
+              userId={user.id}
+              userName={user.name}
+              currentBalance={currentBalance}
+              onSuccess={handleSuccessfulFundsAdd}
             />
-        </div>
-         :
-         <>
-         <Button
-         onClick={redeemPoints}
-         >Redeem Points</Button>
-         </>
-         }         
+          </div>
+        ) : user.role === "SELLER" ? (
+          <div>
+            <RedeemPointsForm
+              userId={user.id}
+              userName={user.name}
+              currentPoints={points}
+              currentBalance={currentBalance}
+              onSuccess={handleSuccessfulPointsRedeem}
+            />
+          </div>
+        ) : (
+          <></>
+        )}
       </div>
     </>
   );
 }
-// "use client"; // Client-side component
-
-// import Link from "next/link";
-// import { useState, useEffect } from "react";
-// import { Users, Search, ArrowLeft } from "lucide-react";
-// import { motion } from "framer-motion"; // For animations
-
-// export default function UsersClient({ users }) {
-//   const [searchQuery, setSearchQuery] = useState("");
-//   const [filteredUsers, setFilteredUsers] = useState(users);
-
-//   useEffect(() => {
-//     const lowercasedQuery = searchQuery.toLowerCase();
-//     const filtered = users.filter(
-//       (user) =>
-//         user.name.toLowerCase().includes(lowercasedQuery) ||
-//         user.email.toLowerCase().includes(lowercasedQuery) ||
-//         user.role.toLowerCase().includes(lowercasedQuery)
-//     );
-//     setFilteredUsers(filtered);
-//   }, [searchQuery, users]);
-
-//   return (
-//     <div className="container mx-auto py-6 px-4">
-//       {/* Back to Dashboard Button */}
-//       <Link
-//         href="/dashboard"
-//         className="inline-flex items-center text-indigo-600 hover:text-indigo-800 mb-4 transition-all duration-300 ease-in-out"
-//       >
-//         <ArrowLeft size={16} className="mr-1" />
-//         Back to Dashboard
-//       </Link>
-
-//       {/* Header & Search Box */}
-//       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-//         <div className="flex items-center">
-//           <Users size={28} className="text-indigo-700 mr-3" />
-//           <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-//         </div>
-
-//         {/* Search Bar */}
-//         <div className="relative w-full md:w-80">
-//           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-//             <Search size={16} className="text-gray-400" />
-//           </div>
-//           <input
-//             type="text"
-//             className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-300 ease-in-out"
-//             placeholder="Search users..."
-//             value={searchQuery}
-//             onChange={(e) => setSearchQuery(e.target.value)}
-//           />
-//         </div>
-//       </div>
-
-//       {/* User Table with Fixed Alignment */}
-//       <div className="bg-white shadow-xl rounded-lg overflow-hidden border border-gray-200">
-//         <div className="overflow-x-auto">
-//           <table className="min-w-full divide-y divide-gray-200">
-//             {/* Table Header (Fixed Alignment) */}
-//             <thead className="bg-gray-100 text-gray-700">
-//               <tr>
-//                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide w-1/4">
-//                   Name
-//                 </th>
-//                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide w-1/4">
-//                   Email
-//                 </th>
-//                 <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide w-1/6">
-//                   Role
-//                 </th>
-//                 <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wide w-1/6">
-//                   Status
-//                 </th>
-//                 <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide w-1/6">
-//                   Balance
-//                 </th>
-//                 <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide w-1/6">
-//                   Points
-//                 </th>
-//                 <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide w-1/6">
-//                   Actions
-//                 </th>
-//               </tr>
-//             </thead>
-
-//             {/* Table Body (Data Rows) */}
-//             <tbody className="bg-white divide-y divide-gray-200">
-//               {filteredUsers.map((user, index) => (
-//                 <motion.tr
-//                   key={user.id}
-//                   initial={{ opacity: 0, y: 10 }}
-//                   animate={{ opacity: 1, y: 0 }}
-//                   transition={{ duration: 0.4, delay: index * 0.1 }}
-//                   className="hover:bg-gray-100 transition-all duration-300 ease-in-out"
-//                 >
-//                   {/* Name (Left Aligned) */}
-//                   <td className="px-6 py-4 text-left whitespace-nowrap w-1/4">
-//                     <div className="flex items-center">
-//                       <div className="h-10 w-10 flex-shrink-0 bg-indigo-100 text-indigo-700 font-bold rounded-full flex items-center justify-center">
-//                         {user.name.charAt(0).toUpperCase()}
-//                       </div>
-//                       <div className="ml-4">
-//                         <div className="text-sm font-semibold text-gray-900">
-//                           {user.name}
-//                         </div>
-//                       </div>
-//                     </div>
-//                   </td>
-
-//                   {/* Email (Left Aligned) */}
-//                   <td className="px-6 py-4 text-left text-sm text-gray-600 whitespace-nowrap w-1/4">
-//                     {user.email}
-//                   </td>
-
-//                   {/* Role (Centered) */}
-//                   <td className="px-6 py-4 text-center whitespace-nowrap w-1/6">
-//                     <span className={`px-3 py-1 rounded-full text-xs font-semibold 
-//                       ${
-//                         user.role === "SUPER_ADMIN"
-//                           ? "bg-purple-100 text-purple-800"
-//                           : user.role === "SELLER"
-//                           ? "bg-blue-100 text-blue-800"
-//                           : "bg-green-100 text-green-800"
-//                       }`}
-//                     >
-//                       {user.role}
-//                     </span>
-//                   </td>
-
-//                   {/* Status (Centered) */}
-//                   <td className="px-6 py-4 text-center whitespace-nowrap w-1/6">
-//                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-//                         user.isApproved ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-//                       }`}
-//                     >
-//                       {user.isApproved ? "Approved" : "Pending"}
-//                     </span>
-//                   </td>
-
-//                   {/* Balance (Right Aligned) */}
-//                   <td className="px-6 py-4 text-right text-sm font-semibold text-gray-800 whitespace-nowrap w-1/6">
-//                     ${user.amount.toFixed(2)}
-//                   </td>
-
-//                   {/* Points (Right Aligned) */}
-//                   <td className="px-6 py-4 text-right text-sm font-semibold text-gray-800 whitespace-nowrap w-1/6">
-//                     {user.points}
-//                   </td>
-
-//                   {/* Manage Button (Right Aligned) */}
-//                   <td className="px-6 py-4 text-right whitespace-nowrap w-1/6">
-//                     <Link
-//                       href={`/admin/users/${user.id}`}
-//                       className="px-4 py-2 text-white bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-purple-500 hover:to-indigo-500 transition-all duration-300 ease-in-out rounded-full shadow-md"
-//                     >
-//                       Manage
-//                     </Link>
-//                   </td>
-//                 </motion.tr>
-//               ))}
-//               {filteredUsers.length === 0 && (
-//                 <tr>
-//                   <td colSpan="7" className="text-center py-6 text-gray-500">
-//                     No users found.
-//                   </td>
-//                 </tr>
-//               )}
-//             </tbody>
-//           </table>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }

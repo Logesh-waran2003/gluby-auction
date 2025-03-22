@@ -58,14 +58,16 @@ export default function AddFundsForm({
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
 
+      // Toast notification with correct variant
       toast({
         title: "Funds added successfully",
         description: `Added ${amount.toFixed(2)} to ${userName}'s account`,
-        variant: "default",
+        variant: "default", // Changed to default
       });
 
       setAmount(0);
 
+      // Ensure this callback is called properly
       if (onSuccess && data.newBalance) {
         onSuccess(data.newBalance);
       }
