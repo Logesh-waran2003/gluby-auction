@@ -9,6 +9,7 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '', userType: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -52,14 +53,24 @@ export default function Login() {
               className='w-full p-3 border border-gray-300 rounded-lg focus:ring focus:ring-indigo-200'
               required
             />
-            <input
-              type='password'
-              name='password'
-              placeholder='Password'
-              onChange={handleChange}
-              className='w-full p-3 border border-gray-300 rounded-lg focus:ring focus:ring-indigo-200'
-              required
-            />
+            
+            <div className='relative'>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                name='password'
+                placeholder='Password'
+                onChange={handleChange}
+                className='w-full p-3 border border-gray-300 rounded-lg focus:ring focus:ring-indigo-200 pr-10'
+                required
+              />
+              <span
+                className='absolute inset-y-0 right-3 flex items-center cursor-pointer text-gray-500 hover:text-gray-700'
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? '👁️' : '👁️‍🗨️'}
+              </span>
+            </div>
+
             <div>
               <label className='sr-only'>User Type</label>
               <div className='flex flex-row items-center justify-center gap-4 space-x-4'>
@@ -95,6 +106,7 @@ export default function Login() {
                 </label>
               </div>
             </div>
+
             <button
               type='submit'
               disabled={loading}
@@ -102,6 +114,7 @@ export default function Login() {
             >
               {loading ? 'Logging in...' : 'Login'}
             </button>
+
             <button
               type='button'
               className='w-full bg-gray-200 text-gray-700 p-3 rounded-lg shadow-md hover:bg-gray-300 transition-all hover:scale-[1.02]'
