@@ -1,119 +1,120 @@
-import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
-import { NextResponse } from "next/server";
+import { bidService } from "@/services/bidService";
+import { auctionService } from "@/services/auctionService";
+import { userService } from "@/services/userService";
+import { apiResponse } from "@/lib/api/response";
 
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-
-  if (!session) {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
-
+/**
+ * POST /api/bids
+ * Create a new bid
+ */
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
-    const { auctionId, amount } = body;
+    const session = await getServerSession(authOptions);
 
-    // Get the current user with their balance
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { amount: true },
-    });
-
-    if (!user) {
-      return new NextResponse("User not found", { status: 404 });
+    if (!session?.user) {
+      return apiResponse.unauthorized();
     }
 
-    // Check if the user has enough balance for the bid
-    if (user.amount < amount) {
-      return new NextResponse("Insufficient funds to place this bid", {
-        status: 400,
+    if (session.user.role !== "BUYER") {
+      return apiResponse.forbidden("Only buyers can place bids");
+    }
+
+    const body = await req.json();
+    const { amount, auctionId } = body;
+
+    if (!amount || !auctionId) {
+      return apiResponse.validationError({
+        amount: !amount ? ["Bid amount is required"] : [],
+        auctionId: !auctionId ? ["Auction ID is required"] : []
       });
     }
 
-    const auction = await prisma.auction.findUnique({
-      where: { id: auctionId },
-      include: {
-        bids: {
-          orderBy: { amount: "desc" },
-          take: 1,
-          include: { bidder: true },
-        },
-      },
-    });
+    // Validate bid amount is a number
+    if (isNaN(Number(amount))) {
+      return apiResponse.validationError({
+        amount: ["Bid amount must be a valid number"]
+      });
+    }
 
+    // Get the auction
+    const auction = await auctionService.findById(auctionId);
     if (!auction) {
-      return new NextResponse("Auction not found", { status: 404 });
+      return apiResponse.notFound("Auction not found");
     }
 
+    // Check if auction is active
     if (auction.status !== "ACTIVE") {
-      return new NextResponse("Auction is not active", { status: 400 });
+      return apiResponse.forbidden("Cannot bid on inactive auctions");
     }
 
-    if (new Date(auction.endTime) < new Date()) {
-      return new NextResponse("Auction has ended", { status: 400 });
+    // Check if auction has ended
+    if (new Date() > auction.endTime) {
+      return apiResponse.forbidden("Auction has ended");
     }
 
-    if (amount <= auction.currentPrice) {
-      return new NextResponse("Bid must be higher than current price", {
-        status: 400,
-      });
-    }
-
-    if (session.user.id === auction.sellerId) {
-      return new NextResponse("Cannot bid on your own auction", {
-        status: 400,
+    // Check if bid amount is higher than current price
+    if (Number(amount) <= auction.currentPrice) {
+      return apiResponse.validationError({
+        amount: ["Bid amount must be higher than current price"]
       });
     }
 
-    // Find the previous highest bidder (if any) to refund their bid
-    const previousHighestBid = auction.bids[0];
+    // Check if user has enough funds
+    const user = await userService.findById(session.user.id);
+    if (!user || user.amount < Number(amount)) {
+      return apiResponse.forbidden("Insufficient funds to place this bid");
+    }
 
-    // Create bid, update auction price, adjust user balances in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Create the new bid
-      const newBid = await tx.bid.create({
-        data: {
-          amount,
-          auctionId,
-          bidderId: session.user.id,
-        },
-      });
-
-      // 2. Update the auction's current price
-      const updatedAuction = await tx.auction.update({
-        where: { id: auctionId },
-        data: { currentPrice: amount },
-      });
-
-      // 3. Deduct the bid amount from the current bidder's balance
-      await tx.user.update({
-        where: { id: session.user.id },
-        data: {
-          amount: {
-            decrement: amount,
-          },
-        },
-      });
-
-      // 4. If there was a previous bid, refund that bidder
-      if (previousHighestBid) {
-        await tx.user.update({
-          where: { id: previousHighestBid.bidder.id },
-          data: {
-            amount: {
-              increment: previousHighestBid.amount,
-            },
-          },
-        });
-      }
-
-      return newBid;
+    // Create the bid
+    const bid = await bidService.create({
+      amount: Number(amount),
+      bidderId: session.user.id,
+      auctionId,
     });
 
-    return NextResponse.json(result);
+    return apiResponse.success(bid, 201);
   } catch (error) {
-    console.error("[BIDS_POST]", error);
-    return new NextResponse("Internal error", { status: 500 });
+    console.error("Error creating bid:", error);
+    return apiResponse.error(error);
+  }
+}
+
+/**
+ * GET /api/bids
+ * Get bids for an auction or by a user
+ */
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const auctionId = searchParams.get("auctionId");
+    const bidderId = searchParams.get("bidderId");
+    
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return apiResponse.unauthorized();
+    }
+
+    if (auctionId) {
+      const bids = await bidService.findByAuctionId(auctionId);
+      return apiResponse.success(bids);
+    } else if (bidderId) {
+      // Only allow users to see their own bids unless they're an admin
+      if (bidderId !== session.user.id && session.user.role !== "SUPER_ADMIN") {
+        return apiResponse.forbidden("You can only view your own bids");
+      }
+      
+      const bids = await bidService.findByBidderId(bidderId);
+      return apiResponse.success(bids);
+    } else {
+      return apiResponse.validationError({
+        query: ["Either auctionId or bidderId is required"]
+      });
+    }
+  } catch (error) {
+    console.error("Error fetching bids:", error);
+    return apiResponse.error(error);
   }
 }

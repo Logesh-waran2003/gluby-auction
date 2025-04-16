@@ -1,74 +1,71 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
-import { PrismaClient, AuctionStatus } from "@prisma/client";
+import { auctionService } from "@/services/auctionService";
+import { apiResponse } from "@/lib/api/response";
+import { AuctionStatus } from "@prisma/client";
 
-const prisma = new PrismaClient();
+/**
+ * GET /api/auctions
+ * Get auctions with optional filtering
+ */
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status") as AuctionStatus | null;
+    const sellerId = searchParams.get("sellerId");
+    const approvalStatus = searchParams.get("approvalStatus");
+    
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return apiResponse.unauthorized();
+    }
 
-// export async function POST(req: Request) {
-//   try {
-//     const session = await getServerSession(authOptions);
+    let options: any = {};
+    
+    if (status) {
+      options.status = status;
+    }
+    
+    if (sellerId) {
+      options.sellerId = sellerId;
+    }
+    
+    if (approvalStatus === "pending") {
+      options.status = AuctionStatus.PENDING;
+    } else if (approvalStatus === "approved") {
+      options.status = AuctionStatus.ACTIVE;
+    }
 
-//     if (!session) {
-//       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-//     }
+    const auctions = await auctionService.findAll(options);
+    return apiResponse.success(auctions);
+  } catch (error) {
+    console.error("Error fetching auctions:", error);
+    return apiResponse.error(error);
+  }
+}
 
-//     if (session.user.role !== Role.SELLER) {
-//       return NextResponse.json(
-//         { error: "Only sellers can create auctions" },
-//         { status: 403 }
-//       );
-//     }
-
-//     const data = await req.json();
-//     const { title, description, startPrice, endTime, images, itemType } = data;
-
-//     // Validate required fields
-//     if (!title || !description || !startPrice || !endTime) {
-//       return NextResponse.json(
-//         { error: "Missing required fields" },
-//         { status: 400 }
-//       );
-//     }
-
-//     // Create the auction
-//     const auction = await prisma.auction.create({
-//       data: {
-//         title,
-//         description,
-//         startPrice,
-//         currentPrice: startPrice,
-//         endTime: new Date(endTime),
-//         images: images || [],
-//         sellerId: session.user.id,
-//         itemType,
-//         status: AuctionStatus.ACTIVE,
-//       },
-//     });
-
-//     return NextResponse.json(auction);
-//   } catch (error) {
-//     console.error("Auction creation error:", error);
-//     return NextResponse.json(
-//       { error: "Failed to create auction" },
-//       { status: 500 }
-//     );
-//   }
-// }
-
-// app/api/auctions/route.ts
+/**
+ * POST /api/auctions
+ * Create a new auction
+ */
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    console.log("[Auction Creation] Session:", session);
 
     if (!session?.user?.id) {
-      console.error("[Auction Creation] Unauthorized access attempt");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiResponse.unauthorized();
+    }
+
+    if (session.user.role !== "SELLER") {
+      return apiResponse.forbidden("Only sellers can create auctions");
+    }
+
+    if (!session.user.isApproved) {
+      return apiResponse.forbidden("Your seller account is pending approval");
     }
 
     const rawBody = await req.text();
-    console.log("[Auction Creation] Raw request body:", rawBody);
     const data = JSON.parse(rawBody);
 
     const {
@@ -81,142 +78,46 @@ export async function POST(req: Request) {
     } = data;
 
     // Validate required fields
-    const missingFields = [];
-    if (!title?.trim()) missingFields.push("title");
-    if (!description?.trim()) missingFields.push("description");
-    if (!startPrice) missingFields.push("startPrice");
-    if (!endTime) missingFields.push("endTime");
-
-    if (missingFields.length > 0) {
-      console.error("[Auction Creation] Missing fields:", missingFields);
-      return NextResponse.json(
-        { error: `Missing required fields: ${missingFields.join(", ")}` },
-        { status: 400 }
-      );
+    const errors: Record<string, string[]> = {};
+    
+    if (!title?.trim()) errors.title = ["Title is required"];
+    if (!description?.trim()) errors.description = ["Description is required"];
+    if (!startPrice) errors.startPrice = ["Start price is required"];
+    if (!endTime) errors.endTime = ["End time is required"];
+    
+    if (Object.keys(errors).length > 0) {
+      return apiResponse.validationError(errors);
     }
 
     // Validate numerical startPrice
     if (isNaN(Number(startPrice))) {
-      console.error("[Auction Creation] Invalid startPrice:", startPrice);
-      return NextResponse.json(
-        { error: "startPrice must be a valid number" },
-        { status: 400 }
-      );
+      return apiResponse.validationError({
+        startPrice: ["Start price must be a valid number"]
+      });
     }
 
     // Validate itemType enum
     const validItemTypes = ["IRON", "METAL", "ALUMINIUM"];
     if (!validItemTypes.includes(itemType)) {
-      console.error("[Auction Creation] Invalid itemType:", itemType);
-      return NextResponse.json(
-        { error: "Invalid item type specified" },
-        { status: 400 }
-      );
+      return apiResponse.validationError({
+        itemType: ["Invalid item type specified"]
+      });
     }
 
-    console.log("[Auction Creation] Creating auction with:", {
+    const auction = await auctionService.create({
       title: title.trim(),
       description: description.trim(),
       startPrice: Number(startPrice),
+      currentPrice: Number(startPrice),
       endTime: new Date(endTime),
       images,
       itemType,
       sellerId: session.user.id,
     });
 
-    const auction = await prisma.auction.create({
-      data: {
-        title: title.trim(),
-        description: description.trim(),
-        startPrice: Number(startPrice),
-        currentPrice: Number(startPrice),
-        endTime: new Date(endTime),
-        images,
-        itemType,
-        sellerId: session.user.id,
-        // itemType,
-        status: AuctionStatus.PENDING,
-      },
-    });
-
-    console.log("[Auction Creation] Success:", auction.id);
-    return NextResponse.json(auction);
+    return apiResponse.success(auction, 201);
   } catch (error) {
-    console.error("[Auction Creation] Critical Error:", {
-      error,
-      rawError: error instanceof Error ? error.message : "Unknown error type",
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status") as AuctionStatus | null;
-    const sellerId = searchParams.get("sellerId");
-    const approvalStatus = searchParams.get("approvalStatus");
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const auctions = await prisma.auction.findMany({
-      where: {
-        ...(status && { status: status as AuctionStatus }),
-        ...(sellerId && { sellerId }),
-        ...(approvalStatus === "pending" && { status: AuctionStatus.PENDING }),
-        ...(approvalStatus === "approved" && { status: AuctionStatus.ACTIVE }),
-      },
-      include: {
-        seller: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            createdAt: true,
-          },
-        },
-        bids: {
-          select: {
-            id: true,
-            amount: true,
-            createdAt: true,
-            bidder: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
-          orderBy: {
-            amount: "desc",
-          },
-          take: 5,
-        },
-        _count: {
-          select: {
-            bids: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return NextResponse.json(auctions);
-  } catch (error) {
-    console.error("Auction fetch error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch auctions" },
-      { status: 500 }
-    );
+    console.error("Error creating auction:", error);
+    return apiResponse.error(error);
   }
 }
